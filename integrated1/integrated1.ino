@@ -438,9 +438,6 @@ void getCurrentMessage(struct Menu * menu, char **lines)
       EditSubmenuVars * vars = (EditSubmenuVars*)menu->subMenus[MENU_EDITSTEPS].vars;
       short stepId = menu->subMenus[MENU_EDITSTEPS].stepId;
       short stepToDisplay = min(stepId+1, vars->stepsCount);
-      Serial.print("stepId=");
-      Serial.print(stepId);
-      
       sprintf(buf[0], "[E] %d/%d ", stepToDisplay, vars->stepsCount);
       strcat(buf[0], s_editActions[(int)vars->nextAction]);
       fillLine(buf[0]);
