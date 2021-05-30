@@ -114,9 +114,9 @@ struct ButtonHit checkButton()
 /////      End buttons library
 
 //////// Start generic utils
-int DECIMAL_1(float x)
+unsigned int DECIMAL_1(float x)
 {
-  return int(round((x-(int)x)*10));
+  return abs(int(round((x-(int)x)*10)));
 }
 
 int writeTemp(double temp, char *buf)
@@ -316,10 +316,13 @@ void initStep(struct Menu * menu)
 }
 
 // returns target temp
+//static char s_debugBuf[21];
 float runStep(struct Menu * menu)
 {
   short stepId = menu->subMenus[MENU_RUNSTEPS].stepId;
   float targetTemp = 0.f;
+  //memset(s_debugBuf, 0, 21*sizeof(char));
+  //fillLine(s_debugBuf);
 
   static float prevAverageTemp = -1.f;
 
@@ -358,12 +361,14 @@ float runStep(struct Menu * menu)
     }
     prevAverageTemp = tempAverage;
     
+    float action = p + s_PID.i + d;
 
     if (0)
     {
-      char buf[40];
-      sprintf(buf, "p=%d.%d, i=%d.%d, dT=%d.%d, tempC=%d, targetT=%d", (int)p, DECIMAL_1(p), (int)s_PID.i, DECIMAL_1(s_PID.i),
-      (int)dT, DECIMAL_1(dT), (int)tempC, curStep->targetTemp );
+      char buf[80];
+      sprintf(buf, "a=%d.%u, p=%d.%u, i=%d.%u, ",(int)action, DECIMAL_1(action), (int)p, DECIMAL_1(p), (int)s_PID.i, DECIMAL_1(s_PID.i));
+      Serial.print(buf);
+      sprintf(buf, "dT=%d.%u, tempC=%d, targetT=%d", (int)dT, DECIMAL_1(dT), (int)tempC, curStep->targetTemp );
       Serial.println(buf);
     }
 
@@ -372,6 +377,7 @@ float runStep(struct Menu * menu)
     if (COIL_SKIP_FACTOR > 0 && (s_PID.ticksRunning % (COIL_SKIP_FACTOR+1))==0)
     {
       // skip heating this tick.
+      //Serial.println("Skip heating coil due to COIL_SKIP_FACTOR");
       toggleSSR(LOW);
     }
     else if (COIL_SKIP_FACTOR < 0 && (s_PID.ticksRunning % (-(COIL_SKIP_FACTOR)+1))!=0)
@@ -381,7 +387,8 @@ float runStep(struct Menu * menu)
     }
     else
     {
-      int action = p + s_PID.i + d;
+      //sprintf(s_debugBuf, "  a=%d.%u d=%d.%u", (int)action, DECIMAL_1(action), (int)d, DECIMAL_1(d));
+      //Serial.println(s_debugBuf);
       //if (action >= 1 && !s_PID.heatOn)
       if (action > 0.1 && !s_PID.heatOn)
       {
@@ -412,6 +419,7 @@ float runStep(struct Menu * menu)
     menu->submenuId = MENU_MONITOR;
   }
 
+  //s_debugBuf[0] = s_PID.heatOn ? '*' : ' ';
   return targetTemp;
 }
 
@@ -495,6 +503,12 @@ void getCurrentMessage(struct Menu * menu, char **lines)
       fillLine(buf[0]);
       lines[0] = buf[0];
       lines[1] = (char*)"";
+
+      //sprintf(buf[2], (s_PID.heatOn ? "coilActive" : "          "));
+      //sprintf(buf[2] + strlen(buf[2]), " i=%d.%d", (int)s_PID.i, DECIMAL_1(s_PID.i));
+      //lines[2] = buf[2];
+
+      //lines[2] = s_debugBuf;
       lines[2] = (char*)"";
 
       sprintf(buf[3], "E< ");
@@ -866,6 +880,8 @@ double readTemp(double *tempOut)
 {
   static double s_temp = 0;
   static double s_temp1 = 0;
+  static double s_lastTemp = 0;
+  
 #ifdef USE_TWO_PROBES
   static double s_temp2 = 0;
 #endif
@@ -886,6 +902,11 @@ double readTemp(double *tempOut)
   if (s_count > 2)
     s_count = 0;
 
+  if (isnan(s_temp))
+  {
+    return s_lastTemp;
+  }
+
   if (tempOut)
   {
     tempOut[0] = s_temp1;
@@ -896,6 +917,7 @@ double readTemp(double *tempOut)
 #endif
   }
 
+  s_lastTemp = s_temp;
   return s_temp;
 }
 
